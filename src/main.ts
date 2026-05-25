@@ -1,5 +1,6 @@
-/* import "leaflet"; */
+import "./utils/leaflet-import";
 import "../node_modules/leaflet/dist/leaflet.css";
+import "./utils/fullscreen/leaflet.fullscreen.css";
 import "./assets/main.css";
 import { Creature } from "../../obsidian-initiative-tracker/src/utils/creature";
 

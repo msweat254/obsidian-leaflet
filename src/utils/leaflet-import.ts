@@ -1,5 +1,6 @@
 import { MAP_OVERLAY_STROKE_OPACITY, MAP_OVERLAY_STROKE_WIDTH } from ".";
 import type * as Leaflet from "leaflet";
+import { FullscreenPlugin } from "./fullscreen/fullscreen";
 
 declare global {
     interface Window {
@@ -14,13 +15,20 @@ if (!window.L) {
     require("leaflet");
 }
 
-window[LeafletSymbol] = window.L;
-window[LeafletSymbol].Circle.mergeOptions({
+const L = window.L;
+window[LeafletSymbol] = L;
+L.Circle.mergeOptions({
     weight: MAP_OVERLAY_STROKE_WIDTH,
     opacity: MAP_OVERLAY_STROKE_OPACITY
 });
 
-require("leaflet-fullscreen");
-require("leaflet-hotline");
+FullscreenPlugin(L);
 
-window.L = WindowL;
+const hotline = require("leaflet-hotline");
+if (typeof hotline === "function") {
+    hotline(L);
+}
+
+if (WindowL !== undefined) {
+    window.L = WindowL;
+}
