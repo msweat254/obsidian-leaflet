@@ -1,7 +1,7 @@
 {
-    "id": "obsidian-leaflet-plus",
+    "id": "leaflet-plus",
     "name": "Leaflet Plus",
-    "description": "Interactive maps inside your notes (Fork of Obsidian Leaflet)",
+    "description": "Interactive maps inside your notes (Fork of Leaflet)",
     "version": "1.0.0",
     "minAppVersion": "0.12.12",
     "author": "Michael Sweat",
