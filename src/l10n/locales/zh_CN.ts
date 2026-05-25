@@ -299,4 +299,16 @@ export default {
     "Fill Color": "填充颜色",
     "Move Shapes": "移动形状",
     "Export Drawing to GeoJSON": "导出绘制的GeoJSON",
+
+    "Fix size to image": "固定为图像尺寸",
+    "Keep marker size constant on the source image when zooming in or out.":
+        "缩放地图时保持标记在源图像上的像素尺寸不变。",
+    "Size (pixels on image)": "尺寸（图像像素）",
+    "Marker width and height in pixels on the map image at maximum zoom.":
+        "标记在地图最大缩放级别下相对于源图像的宽高（像素）。",
+    "Fixed to image sizing only applies to image maps.":
+        "固定图像尺寸仅适用于图像地图。",
+    "Pixels is required when fix size to image is enabled.":
+        "启用固定图像尺寸时必须填写像素值。",
+    "Pixels must be a positive number.": "像素值必须为正数。",
 };

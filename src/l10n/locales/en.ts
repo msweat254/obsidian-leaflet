@@ -313,4 +313,16 @@ export default {
     "Fill Color": "Fill Color",
     "Move Shapes": "Move Shapes",
     "Export Drawing to GeoJSON": "Export Drawing to GeoJSON",
+
+    "Fix size to image": "Fix size to image",
+    "Keep marker size constant on the source image when zooming in or out.":
+        "Keep marker size constant on the source image when zooming in or out.",
+    "Size (pixels on image)": "Size (pixels on image)",
+    "Marker width and height in pixels on the map image at maximum zoom.":
+        "Marker width and height in pixels on the map image at maximum zoom.",
+    "Fixed to image sizing only applies to image maps.":
+        "Fixed to image sizing only applies to image maps.",
+    "Pixels is required when fix size to image is enabled.":
+        "Pixels is required when fix size to image is enabled.",
+    "Pixels must be a positive number.": "Pixels must be a positive number.",
 };

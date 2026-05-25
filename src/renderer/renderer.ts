@@ -33,6 +33,7 @@ import {
     OVERLAY_TAG_REGEX,
     DEFAULT_BLOCK_PARAMETERS,
     parseLink,
+    parseImmutableMarkerEntry,
     getHeight,
     getHex,
     VIEW_TYPE,
@@ -60,6 +61,8 @@ type ImmutableMarker = [
     desc: string,
     minZoom: number,
     maxZoom: number,
+    fixedToImage?: boolean,
+    pixels?: number,
     tag?: string
 ];
 type ImmutableOverlay = [
@@ -696,9 +699,11 @@ export class LeafletRenderer extends MarkdownRenderChild {
                 id,
                 desc,
                 minZoom,
-                maxZoom
+                maxZoom,
+                fixedToImage,
+                pixels
             ]) => {
-                return {
+                const props: SavedMarkerProperties = {
                     type,
                     loc: [Number(lat), Number(long)],
                     percent: undefined,
@@ -710,9 +715,15 @@ export class LeafletRenderer extends MarkdownRenderChild {
                     description: desc,
                     minZoom,
                     maxZoom,
-                    tooltip: "hover",
-                    zoom: undefined
+                    tooltip: "hover"
                 };
+                if (fixedToImage) {
+                    props.fixedToImage = true;
+                }
+                if (pixels != null && !isNaN(Number(pixels))) {
+                    props.pixels = Number(pixels);
+                }
+                return props;
             }
         );
 
@@ -751,6 +762,27 @@ export class LeafletRenderer extends MarkdownRenderChild {
     getImmutableMarkers() {
         let markers: ImmutableMarker[] = [];
         for (let marker of this.params.marker ?? []) {
+            const parsed = parseImmutableMarkerEntry(marker);
+            if (parsed) {
+                markers.push([
+                    parsed.type,
+                    parsed.lat,
+                    parsed.lng,
+                    parsed.link,
+                    parsed.layer,
+                    parsed.command ?? false,
+                    null,
+                    parsed.description,
+                    parsed.minZoom,
+                    parsed.maxZoom,
+                    parsed.fixedToImage,
+                    parsed.pixels
+                ]);
+                continue;
+            }
+            if (typeof marker !== "string") {
+                continue;
+            }
             /* type, lat, long, link, layer, */
             const { data } = parseCSV<string>(marker);
             if (!data.length) {
@@ -1176,41 +1208,77 @@ export class LeafletRenderer extends MarkdownRenderChild {
 
                     if (frontmatter.mapmarkers) {
                         const id = getId();
-                        frontmatter.mapmarkers.forEach(
-                            ([type, location, description, minZoom, maxZoom]: [
-                                type: string,
-                                location: number[],
-                                description: string,
-                                minZoom: number,
-                                maxZoom: number
-                            ]) => {
-                                let min, max;
-                                if (isNaN(Number(minZoom))) {
-                                    min = undefined;
-                                } else {
-                                    min = Number(minZoom);
-                                }
-                                if (isNaN(Number(maxZoom))) {
-                                    max = undefined;
-                                } else {
-                                    max = Number(maxZoom);
-                                }
+                        frontmatter.mapmarkers.forEach((entry: unknown) => {
+                            const parsed = parseImmutableMarkerEntry(entry);
+                            if (parsed) {
                                 markers.push([
-                                    type ||
+                                    parsed.type ||
                                         this.plugin.getIconForTag(tags) ||
                                         "default",
-                                    location[0],
-                                    location[1],
+                                    parsed.lat,
+                                    parsed.lng,
                                     linkText,
                                     undefined,
                                     false,
                                     id,
-                                    description,
-                                    min,
-                                    max
+                                    parsed.description,
+                                    parsed.minZoom,
+                                    parsed.maxZoom,
+                                    parsed.fixedToImage,
+                                    parsed.pixels
                                 ]);
+                                return;
                             }
-                        );
+                            if (!Array.isArray(entry) || entry.length < 2) {
+                                return;
+                            }
+                            const [
+                                type,
+                                location,
+                                description,
+                                minZoom,
+                                maxZoom,
+                                fixedToImage,
+                                pixels
+                            ] = entry as [
+                                string,
+                                number[],
+                                string,
+                                number,
+                                number,
+                                boolean?,
+                                number?
+                            ];
+                            let min, max;
+                            if (isNaN(Number(minZoom))) {
+                                min = undefined;
+                            } else {
+                                min = Number(minZoom);
+                            }
+                            if (isNaN(Number(maxZoom))) {
+                                max = undefined;
+                            } else {
+                                max = Number(maxZoom);
+                            }
+                            markers.push([
+                                type ||
+                                    this.plugin.getIconForTag(tags) ||
+                                    "default",
+                                location[0],
+                                location[1],
+                                linkText,
+                                undefined,
+                                false,
+                                id,
+                                description,
+                                min,
+                                max,
+                                fixedToImage,
+                                pixels != null && !isNaN(Number(pixels))
+                                    ? Number(pixels)
+                                    : undefined
+                            ]);
+                        });
                         idMap.set("mapmarkers", id);
                     }
 

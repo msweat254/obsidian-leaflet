@@ -62,6 +62,13 @@ export class MarkerContextModal extends Modal {
                             ? this.map.data.defaultMarker
                             : this.map.markerIcons.get(value);
                     this.tempMarker.type = newMarker.type;
+                    const iconDef =
+                        value == "default"
+                            ? this.map.data.defaultMarker
+                            : newMarker?.markerIcon;
+                    this.tempMarker.fixedToImage =
+                        iconDef?.fixedToImage ?? false;
+                    this.tempMarker.pixels = iconDef?.pixels;
                 });
             });
         if (this.tempMarker.command) {
@@ -121,6 +128,47 @@ export class MarkerContextModal extends Modal {
                     .setValue(this.tempMarker.description)
                     .onChange((v) => (this.tempMarker.description = v))
             );
+        new Setting(this.contentEl)
+            .setName(t("Fix size to image"))
+            .setDesc(
+                t(
+                    "Keep marker size constant on the source image when zooming in or out."
+                )
+            )
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.tempMarker.fixedToImage ?? false)
+                    .onChange((v) => {
+                        this.tempMarker.fixedToImage = v;
+                        if (!v) {
+                            this.tempMarker.pixels = undefined;
+                        }
+                        this.display();
+                    })
+            );
+        if (this.tempMarker.fixedToImage) {
+            new Setting(this.contentEl)
+                .setName(t("Size (pixels on image)"))
+                .setDesc(
+                    t(
+                        "Marker width and height in pixels on the map image at maximum zoom."
+                    )
+                )
+                .addText((text) => {
+                    if (this.tempMarker.pixels != null) {
+                        text.setValue(`${this.tempMarker.pixels}`);
+                    }
+                    text.onChange((v) => {
+                        if (!v?.trim()) {
+                            this.tempMarker.pixels = undefined;
+                            return;
+                        }
+                        const n = Number(v);
+                        this.tempMarker.pixels =
+                            isNaN(n) || n <= 0 ? undefined : n;
+                    });
+                });
+        }
         new Setting(this.contentEl)
             .setName("Show Advanced Options")
             .addToggle((t) =>

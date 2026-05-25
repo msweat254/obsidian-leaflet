@@ -16,6 +16,8 @@ export interface Icon {
     tags?: string[];
     minZoom?: number;
     maxZoom?: number;
+    fixedToImage?: boolean;
+    pixels?: number;
 }
 
 export interface MapMarkerData {

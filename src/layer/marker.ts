@@ -2,6 +2,7 @@ import { App, Menu, Notice, setIcon } from "obsidian";
 import type {
     MarkerIcon,
     DivIconMarker,
+    DivIconMarkerOptions,
     MarkerDivIcon,
     TooltipDisplay,
     MarkerProperties,
@@ -185,6 +186,9 @@ export class Marker extends Layer<DivIconMarker> {
     private _icon: MarkerIcon;
     isBeingHovered: boolean = false;
     private _link: string;
+    fixedToImage: boolean;
+    pixels?: number;
+    private _warnedNonImageMap = false;
     constructor(
         public map: BaseMapType,
         {
@@ -199,7 +203,9 @@ export class Marker extends Layer<DivIconMarker> {
             description,
             minZoom,
             maxZoom,
-            tooltip
+            tooltip,
+            fixedToImage,
+            pixels
         }: MarkerProperties
     ) {
         super();
@@ -217,15 +223,29 @@ export class Marker extends Layer<DivIconMarker> {
             return;
         }
         const marker = markerIcon.markerIcon;
+        const resolvedFixedToImage =
+            fixedToImage !== undefined
+                ? fixedToImage
+                : marker?.fixedToImage ?? false;
+        const resolvedPixels =
+            pixels !== undefined && pixels !== null ? pixels : marker?.pixels;
         const icon = markerDivIcon(this.map.plugin.parseIcon(marker));
-        this.leafletInstance = divIconMarker(
-            loc,
+        const markerOptions: DivIconMarkerOptions & { zoomAnimation?: boolean } =
             {
                 icon,
+                zoomAnimation: !(
+                    resolvedFixedToImage &&
+                    resolvedPixels != null &&
+                    !isNaN(Number(resolvedPixels)) &&
+                    Number(resolvedPixels) > 0
+                ),
                 keyboard: mutable && !this.map.options.lock,
                 draggable: mutable && !this.map.options.lock,
                 bubblingMouseEvents: true
-            },
+            };
+        this.leafletInstance = divIconMarker(
+            loc,
+            markerOptions,
             {
                 link: link,
                 mutable: `${mutable}`,
@@ -257,9 +277,163 @@ export class Marker extends Layer<DivIconMarker> {
         this.minZoom = minZoom ?? marker?.minZoom ?? null;
         this.maxZoom = maxZoom ?? marker?.maxZoom ?? null;
 
+        this.fixedToImage = resolvedFixedToImage;
+        this.pixels = resolvedPixels;
+
         this.checkAndAddToMap();
 
         this.bindEvents();
+        this.applyImageFixedSize();
+    }
+
+    private usesImageFixedSize() {
+        const pixels = Number(this.pixels);
+        return (
+            this.fixedToImage &&
+            this.pixels != null &&
+            !isNaN(pixels) &&
+            pixels > 0
+        );
+    }
+
+    private syncZoomAnimationOption() {
+        if (!this.leafletInstance?.options) return;
+        const options = this.leafletInstance.options as DivIconMarkerOptions & {
+            zoomAnimation?: boolean;
+        };
+        options.zoomAnimation = !this.usesImageFixedSize();
+    }
+
+    /** Matches ImageMap._buildMapLayer unproject zoom for native image pixels. */
+    private getImageReferenceZoom() {
+        return this.map.zoom.max - 1;
+    }
+
+    /**
+     * Screen pixels per one image pixel at the current map zoom.
+     * Derived from how wide/tall the image overlay is on screen vs source dimensions.
+     */
+    private getScreenPixelsPerImagePixel(zoom?: number): number | null {
+        const map = this.map.leafletInstance;
+        if (!map) return null;
+
+        const dimensions = this.map.currentGroup?.dimensions;
+        if (dimensions?.[0] > 0 && dimensions?.[1] > 0) {
+            const bounds = this.map.bounds;
+            const nw = map.latLngToContainerPoint(bounds.getNorthWest());
+            const se = map.latLngToContainerPoint(bounds.getSouthEast());
+            const screenW = Math.abs(se.x - nw.x);
+            const screenH = Math.abs(se.y - nw.y);
+            const perPxX = screenW / dimensions[0];
+            const perPxY = screenH / dimensions[1];
+            const screenPerImagePixel = (perPxX + perPxY) / 2;
+
+            if (isFinite(screenPerImagePixel) && screenPerImagePixel > 0) {
+                return screenPerImagePixel;
+            }
+        }
+
+        const refZoom = this.getImageReferenceZoom();
+        const currentZoom = zoom ?? map.getZoom();
+        const scale = map.getZoomScale(currentZoom, refZoom);
+        if (!isFinite(scale) || scale <= 0) return null;
+        return scale;
+    }
+
+    private clearImageFixedSize(el: HTMLElement) {
+        el.classList.remove("leaflet-fixed-to-image");
+        el.style.removeProperty("width");
+        el.style.removeProperty("height");
+        el.style.removeProperty("margin-left");
+        el.style.removeProperty("margin-top");
+        const icon = this.divIcon ?? this.leafletInstance?.options?.icon;
+        if (icon?.options) {
+            delete icon.options.iconSize;
+            delete icon.options.iconAnchor;
+        }
+    }
+
+    applyImageFixedSize(zoom?: number) {
+        if (!this.leafletInstance) return;
+        this.syncZoomAnimationOption();
+
+        const apply = () => {
+            const el = this.leafletInstance.getElement?.() as HTMLElement;
+            if (!el) return;
+
+            const pixels = Number(this.pixels);
+            if (
+                !this.fixedToImage ||
+                this.pixels == null ||
+                isNaN(pixels) ||
+                pixels <= 0
+            ) {
+                this.clearImageFixedSize(el);
+                return;
+            }
+
+            if (this.map.type !== "image") {
+                if (!this._warnedNonImageMap) {
+                    this._warnedNonImageMap = true;
+                    new Notice(
+                        t(
+                            "Fixed to image sizing only applies to image maps."
+                        )
+                    );
+                }
+                this.clearImageFixedSize(el);
+                return;
+            }
+
+            const currentZoom = zoom ?? this.map.leafletInstance.getZoom();
+            const screenPerImagePixel =
+                this.getScreenPixelsPerImagePixel(currentZoom);
+            if (screenPerImagePixel == null) {
+                this.clearImageFixedSize(el);
+                return;
+            }
+
+            const size = Math.max(
+                2,
+                Math.round(pixels * screenPerImagePixel)
+            );
+
+            const icon = (this.divIcon ??
+                this.leafletInstance.options?.icon) as MarkerDivIcon;
+            if (icon?.options) {
+                icon.options.iconSize = L.point(size, size);
+                icon.options.iconAnchor = L.point(size / 2, size);
+            }
+
+            const marker = this.leafletInstance as L.Marker & {
+                _setIcon?: (icon: L.DivIcon) => void;
+            };
+            if (icon && marker._setIcon) {
+                marker._setIcon(icon);
+            }
+
+            const sizedEl =
+                (this.leafletInstance.getElement?.() as HTMLElement) ?? el;
+            sizedEl.classList.add("leaflet-fixed-to-image");
+            sizedEl.style.setProperty("width", `${size}px`, "important");
+            sizedEl.style.setProperty("height", `${size}px`, "important");
+            sizedEl.style.setProperty(
+                "margin-left",
+                `${-size / 2}px`,
+                "important"
+            );
+            sizedEl.style.setProperty(
+                "margin-top",
+                `${-size}px`,
+                "important"
+            );
+        };
+
+        if (this.leafletInstance.getElement?.()) {
+            apply();
+        } else {
+            this.leafletInstance.once("add", apply);
+        }
     }
 
     get group() {
@@ -393,12 +567,15 @@ export class Marker extends Layer<DivIconMarker> {
                 this.isBeingHovered = false;
             });
         this.map.leafletInstance.on("zoomanim", (evt: L.ZoomAnimEvent) => {
-            //check markers
+            this.applyImageFixedSize(evt.zoom);
             if (this.shouldShow(evt.zoom)) {
                 this.map.leafletInstance.once("zoomend", () => this.show());
             } else if (this.shouldHide(evt.zoom)) {
                 this.hide();
             }
+        });
+        this.map.leafletInstance.on("zoomend", () => {
+            this.applyImageFixedSize();
         });
         this.map.on("lock", () => {
             if (!this.mutable) return;
@@ -446,6 +623,11 @@ export class Marker extends Layer<DivIconMarker> {
                 this.minZoom = markerSettingsModal.tempMarker.minZoom;
                 this.maxZoom = markerSettingsModal.tempMarker.maxZoom;
                 this.command = markerSettingsModal.tempMarker.command;
+                this.fixedToImage =
+                    markerSettingsModal.tempMarker.fixedToImage;
+                this.pixels = markerSettingsModal.tempMarker.pixels;
+                this.syncZoomAnimationOption();
+                this.applyImageFixedSize();
 
                 if (
                     this.shouldShow(this.map.leafletInstance.getZoom()) &&
@@ -546,6 +728,7 @@ export class Marker extends Layer<DivIconMarker> {
         this.type = x.type;
         this._icon = x;
         this.leafletInstance.setIcon(x.icon);
+        this.applyImageFixedSize();
     }
     get latLng() {
         return this.loc;
@@ -592,6 +775,7 @@ export class Marker extends Layer<DivIconMarker> {
             }
         }
         this.onShow();
+        this.applyImageFixedSize();
     }
     onShow() {}
     shouldShow(zoom: number) {
@@ -628,7 +812,7 @@ export class Marker extends Layer<DivIconMarker> {
     }
 
     toProperties(): SavedMarkerProperties {
-        return {
+        const props: SavedMarkerProperties = {
             id: this.id,
             type: this.type,
             loc: [
@@ -645,6 +829,13 @@ export class Marker extends Layer<DivIconMarker> {
             maxZoom: this.maxZoom,
             tooltip: this.tooltip
         };
+        if (this.fixedToImage) {
+            props.fixedToImage = true;
+        }
+        if (this.pixels != null && !isNaN(Number(this.pixels))) {
+            props.pixels = this.pixels;
+        }
+        return props;
     }
 
     toCodeBlockProperties() {

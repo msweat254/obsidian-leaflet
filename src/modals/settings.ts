@@ -406,6 +406,48 @@ export class CreateMarkerModal extends Modal {
         }
 
         new Setting(createNewMarker)
+            .setName(t("Fix size to image"))
+            .setDesc(
+                t(
+                    "Keep marker size constant on the source image when zooming in or out."
+                )
+            )
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.tempMarker.fixedToImage ?? false)
+                    .onChange((v) => {
+                        this.tempMarker.fixedToImage = v;
+                        if (!v) {
+                            this.tempMarker.pixels = undefined;
+                        }
+                        this.display();
+                    })
+            );
+        if (this.tempMarker.fixedToImage) {
+            new Setting(createNewMarker)
+                .setName(t("Size (pixels on image)"))
+                .setDesc(
+                    t(
+                        "Marker width and height in pixels on the map image at maximum zoom."
+                    )
+                )
+                .addText((text) => {
+                    if (this.tempMarker.pixels != null) {
+                        text.setValue(`${this.tempMarker.pixels}`);
+                    }
+                    text.onChange((v) => {
+                        if (!v?.trim()) {
+                            this.tempMarker.pixels = undefined;
+                            return;
+                        }
+                        const n = Number(v);
+                        this.tempMarker.pixels =
+                            isNaN(n) || n <= 0 ? undefined : n;
+                    });
+                });
+        }
+
+        new Setting(createNewMarker)
             .setName(t("Min Zoom"))
             .setDesc(t("Only display when zooming in below this zoom."))
             .addText((text) => {
@@ -536,6 +578,18 @@ export class CreateMarkerModal extends Modal {
                     error = true;
                 }
 
+                if (
+                    this.tempMarker.fixedToImage &&
+                    (this.tempMarker.pixels == null ||
+                        isNaN(Number(this.tempMarker.pixels)) ||
+                        Number(this.tempMarker.pixels) <= 0)
+                ) {
+                    new Notice(
+                        t("Pixels is required when fix size to image is enabled.")
+                    );
+                    error = true;
+                }
+
                 if (error) {
                     return;
                 }
@@ -551,6 +605,8 @@ export class CreateMarkerModal extends Modal {
                 this.marker.tags = this.tempMarker.tags;
                 this.marker.minZoom = this.tempMarker.minZoom;
                 this.marker.maxZoom = this.tempMarker.maxZoom;
+                this.marker.fixedToImage = this.tempMarker.fixedToImage;
+                this.marker.pixels = this.tempMarker.pixels;
 
                 this.saved = true;
 

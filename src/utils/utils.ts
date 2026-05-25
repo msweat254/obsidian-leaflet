@@ -209,6 +209,70 @@ export async function getBlob(url: string, app: App) {
     return { blob, id: encodeURIComponent(url), alias, extension };
 }
 
+export interface ParsedImmutableMarker {
+    type: string;
+    lat: number;
+    lng: number;
+    link?: string;
+    description?: string;
+    minZoom?: number;
+    maxZoom?: number;
+    layer?: string;
+    command?: boolean;
+    fixedToImage?: boolean;
+    pixels?: number;
+}
+
+export function parseImmutableMarkerEntry(
+    marker: unknown
+): ParsedImmutableMarker | null {
+    if (marker == null || typeof marker !== "object" || Array.isArray(marker)) {
+        return null;
+    }
+    const o = marker as Record<string, unknown>;
+    const type = ((o.type as string) || "default").trim();
+    let lat: number;
+    let lng: number;
+    const loc = o.location ?? o.loc;
+    if (Array.isArray(loc) && loc.length >= 2) {
+        lat = Number(loc[0]);
+        lng = Number(loc[1]);
+    } else if (o.lat != null && (o.lng != null || o.long != null)) {
+        lat = Number(o.lat);
+        lng = Number(o.lng ?? o.long);
+    } else {
+        return null;
+    }
+    if (isNaN(lat) || isNaN(lng)) {
+        return null;
+    }
+    let minZoom: number | undefined;
+    let maxZoom: number | undefined;
+    if (o.minZoom != null && o.minZoom !== "" && !isNaN(Number(o.minZoom))) {
+        minZoom = Number(o.minZoom);
+    }
+    if (o.maxZoom != null && o.maxZoom !== "" && !isNaN(Number(o.maxZoom))) {
+        maxZoom = Number(o.maxZoom);
+    }
+    let pixels: number | undefined;
+    if (o.pixels != null && o.pixels !== "" && !isNaN(Number(o.pixels))) {
+        pixels = Number(o.pixels);
+    }
+    return {
+        type: type === "undefined" || !type.length ? "default" : type,
+        lat,
+        lng,
+        link: o.link as string | undefined,
+        description: o.description as string | undefined,
+        minZoom,
+        maxZoom,
+        layer: o.layer as string | undefined,
+        command: o.command as boolean | undefined,
+        fixedToImage: o.fixedToImage as boolean | undefined,
+        pixels
+    };
+}
+
 export function parseLink(link: string) {
     if (!link) return undefined;
     if (/(?:\[.*\]\(|\[\[)(.+)(?:\)|\]\])/.test(link)) {

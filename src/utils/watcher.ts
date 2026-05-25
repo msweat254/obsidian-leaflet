@@ -9,7 +9,7 @@ import {
 } from "obsidian";
 
 import { Length } from "convert/dist/types/units";
-import { getId, OVERLAY_TAG_REGEX } from ".";
+import { getId, OVERLAY_TAG_REGEX, parseImmutableMarkerEntry } from ".";
 
 import { LeafletSymbol } from "src/utils/leaflet-import";
 
@@ -105,32 +105,58 @@ export class Watcher extends Component {
                 const { mapmarkers } = this.frontmatter;
                 if (!Array.isArray(mapmarkers)) return;
                 this.ids.set("mapmarkers", getId());
-                mapmarkers.forEach(
-                    ([type, location, description]: [
-                        type: string,
-                        location: [number, number],
-                        description: string
-                    ]) => {
+                mapmarkers.forEach((entry: unknown) => {
+                    const parsed = parseImmutableMarkerEntry(entry);
+                    const link =
+                        this.plugin.app.metadataCache.fileToLinktext(
+                            this.file,
+                            "",
+                            true
+                        );
+                    const layer = this.renderer.map.currentGroup.id;
+                    const id = this.ids.get("mapmarkers");
+                    if (parsed) {
                         this.markers.push(
                             new Marker(this.renderer.map, {
-                                type: type,
-                                loc: L.latLng(location),
+                                type: parsed.type,
+                                loc: L.latLng(parsed.lat, parsed.lng),
                                 percent: null,
-                                id: this.ids.get("mapmarkers"),
-                                link: this.plugin.app.metadataCache.fileToLinktext(
-                                    this.file,
-                                    "",
-                                    true
-                                ),
-                                layer: this.renderer.map.currentGroup.id,
+                                id,
+                                link,
+                                layer,
                                 command: false,
                                 mutable: false,
-                                description: description,
-                                zoom: null
+                                description: parsed.description,
+                                zoom: null,
+                                fixedToImage: parsed.fixedToImage,
+                                pixels: parsed.pixels
                             })
                         );
+                        return;
                     }
-                );
+                    if (!Array.isArray(entry) || entry.length < 2) {
+                        return;
+                    }
+                    const [type, location, description] = entry as [
+                        string,
+                        [number, number],
+                        string
+                    ];
+                    this.markers.push(
+                        new Marker(this.renderer.map, {
+                            type: type,
+                            loc: L.latLng(location),
+                            percent: null,
+                            id,
+                            link,
+                            layer,
+                            command: false,
+                            mutable: false,
+                            description: description,
+                            zoom: null
+                        })
+                    );
+                });
             } catch (e) {
                 new Notice(
                     t(`There was an error updating the markers for %1.`)
@@ -309,32 +335,51 @@ export default class OldWatcher extends Events {
                 for (const marker of markers) {
                     this.map.removeMarker(marker);
                 }
-                mapmarkers.forEach(
-                    ([type, location, description]: [
-                        type: string,
-                        location: [number, number],
-                        description: string
-                    ]) => {
+                mapmarkers.forEach((entry: unknown) => {
+                    const parsed = parseImmutableMarkerEntry(entry);
+                    const link =
+                        this.plugin.app.metadataCache.fileToLinktext(
+                            file,
+                            "",
+                            true
+                        );
+                    const base = {
+                        percent: null,
+                        id: this.fileIds.get("mapmarkers"),
+                        link,
+                        layer: this.map.currentGroup.id,
+                        command: false,
+                        mutable: false,
+                        minZoom: null,
+                        maxZoom: null,
+                        tooltip: "hover" as const
+                    };
+                    if (parsed) {
                         this.map.addMarker({
-                            type: type,
-                            loc: location,
-                            percent: null,
-                            id: this.fileIds.get("mapmarkers"),
-                            link: this.plugin.app.metadataCache.fileToLinktext(
-                                file,
-                                "",
-                                true
-                            ),
-                            layer: this.map.currentGroup.id,
-                            command: false,
-                            mutable: false,
-                            description: description,
-                            minZoom: null,
-                            maxZoom: null,
-                            tooltip: "hover"
+                            ...base,
+                            type: parsed.type,
+                            loc: [parsed.lat, parsed.lng],
+                            description: parsed.description,
+                            fixedToImage: parsed.fixedToImage,
+                            pixels: parsed.pixels
                         });
+                        return;
                     }
-                );
+                    if (!Array.isArray(entry) || entry.length < 2) {
+                        return;
+                    }
+                    const [type, location, description] = entry as [
+                        string,
+                        [number, number],
+                        string
+                    ];
+                    this.map.addMarker({
+                        ...base,
+                        type: type,
+                        loc: location,
+                        description: description
+                    });
+                });
             } catch (e) {
                 console.error(e);
                 new Notice(

@@ -175,13 +175,27 @@
     cursor: pointer;
 }
 
-.block-language-leaflet .leaflet-div-icon {
+.block-language-leaflet .leaflet-div-icon:not(.leaflet-fixed-to-image) {
     background: transparent !important;
     border: none !important;
     width: 25px !important;
     height: 25px !important;
     margin-left: -12.5px !important;
     margin-top: -25px !important;
+}
+
+.block-language-leaflet .leaflet-div-icon.leaflet-fixed-to-image {
+    background: transparent !important;
+    border: none !important;
+    display: block !important;
+    box-sizing: border-box !important;
+}
+
+.block-language-leaflet .leaflet-div-icon.leaflet-fixed-to-image svg,
+.block-language-leaflet .leaflet-div-icon.leaflet-fixed-to-image img {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
 }
 
 .block-language-leaflet .leaflet-marker-link-tooltip {

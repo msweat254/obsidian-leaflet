@@ -577,7 +577,7 @@ Markers and overlays may be defined directly in the code block using the followi
 
 | Type    | Syntax                                                                                |
 | ------- | ------------------------------------------------------------------------------------- |
-| Marker  | `marker: <type*>,<latitude>,<longitude>,<link*>,<description*>,<minZoom*>,<maxZoom*>` |
+| Marker  | `marker: <type*>,<latitude>,<longitude>,...` or a YAML object (see below) |
 | Overlay | `overlay: [<color*>, [<latitude, longitude>], <radius*>, <description*>]`             |
 
 An arbitrary number of objects can be defined, but _none of these objects will be editable._ If a change needs to be made to these objects, the code block must be edited.
@@ -586,6 +586,19 @@ The marker link may be defined as an Obsidian wikilink.
 
 > \*: These parameters are optional and can be left blank in the definition.
 > For example, `marker: ,25,25,,,3` will use the default marker type, latitude and longitude 25, no link, no description, minZoom 3, no maxZoom.
+
+Markers may also be defined as YAML objects in the code block:
+
+```yaml
+marker:
+  - type: pc
+    lat: 25
+    lng: 30
+    fixedToImage: true
+    pixels: 40
+```
+
+When `fixedToImage` is true and `pixels` is set, the marker scales with zoom so it stays that many pixels wide/tall on the source image (at maximum zoom). On tile/real-world maps, this setting is ignored and a notice is shown.
 
 **These will not be included in exported data.**
 
@@ -641,10 +654,16 @@ A marker defined using `mapmarkers` should have the following syntax:
 ---
 mapmarkers:
   - [<type>, [<latitude>, <longitude>], <optional description>, <optional minZoom>, <optional maxZoom>]
-  - [<type>, [<latitude>, <longitude>], <optional description>, <optional minZoom>, <optional maxZoom>]
+  - type: pc
+    location: [25, 30]
+    description: Sir Aldric
+    fixedToImage: true
+    pixels: 40
   - ...
 ---
 ```
+
+`fixedToImage` and `pixels` work the same as in code-block marker objects (image maps only).
 
 ##### mapoverlays
 
@@ -868,6 +887,10 @@ Adding a new marker displays a new window, where the new marker parameters can b
 | Layer Icon      | Layer this icon on top of the base marker. If off, the icon itself will be used.                     |
 | Icon Color      | Override the default icon color                                                                      |
 | Associated Tags | Immutable markers will use this marker type if the file has this tag _and `mapmarker` is not set_.   |
+| Fix size to image | When enabled, new markers of this type scale with zoom to stay a fixed size on the source image (image maps only). Requires **Size (pixels on image)**. |
+| Size (pixels on image) | Width and height in pixels on the map image at maximum zoom. Used when **Fix size to image** is enabled. |
+
+Per-marker **Fix size to image** and **Size (pixels on image)** can also be set when editing a marker on the map. Values set on the marker override the marker type defaults.
 
 If layer icon is on, the icon be moved around the base icon by clicking and dragging, to customize where the icon is layered. If <kbd>Shift</kbd> is held while moving the icon, it will snap to the midlines.
 

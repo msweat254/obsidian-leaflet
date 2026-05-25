@@ -403,7 +403,9 @@ export abstract class BaseMap extends Events implements BaseMapDefinition {
                 tooltip:
                     marker.tooltip ?? this.plugin.data.displayMarkerTooltips,
                 minZoom: marker.minZoom,
-                maxZoom: marker.maxZoom
+                maxZoom: marker.maxZoom,
+                fixedToImage: marker.fixedToImage,
+                pixels: marker.pixels
             });
             this.markers.push(newMarker);
             toReturn.push(newMarker);
@@ -467,6 +469,9 @@ export abstract class BaseMap extends Events implements BaseMapDefinition {
         existing.minZoom = marker.minZoom;
         existing.maxZoom = marker.maxZoom;
         existing.command = marker.command;
+        existing.fixedToImage = marker.fixedToImage;
+        existing.pixels = marker.pixels;
+        existing.applyImageFixedSize();
 
         if (existing.shouldShow(this.leafletInstance.getZoom())) {
             existing.show();

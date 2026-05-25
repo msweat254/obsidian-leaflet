@@ -24,6 +24,8 @@ export interface MarkerProperties {
     minZoom?: number;
     maxZoom?: number;
     tooltip?: TooltipDisplay;
+    fixedToImage?: boolean;
+    pixels?: number;
 }
 
 export interface SavedMarkerProperties {
@@ -45,4 +47,6 @@ export interface SavedMarkerProperties {
     minZoom: number;
     maxZoom: number;
     tooltip: TooltipDisplay;
+    fixedToImage?: boolean;
+    pixels?: number;
 }
