@@ -1,5 +1,5 @@
 {
-    "name": "obsidian-leaflet-plus",
+    "name": "leaflet-plus",
     "version": "1.0.0",
     "description": "Leaflet integration for Obsidian.md",
     "main": "main.js",
